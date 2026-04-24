@@ -43,14 +43,23 @@ mkdir -p "$WORKSPACE/memory"
 mkdir -p "$SKILLS_DIR/facebook-page-manager"
 log "Thư mục OK"
 
-# Clone skills repo
+# Clone skills repos
 echo ""
-warn "Clone skills repo..."
+warn "Clone skills repos..."
 if [ ! -d "$SKILLS_DIR/fullstack-mkt-skills" ]; then
     git clone https://github.com/minhnv0807/fullstack-mkt-skills.git "$SKILLS_DIR/fullstack-mkt-skills" 2>/dev/null || warn "Clone failed (skip)"
 else
     warn "Skills repo đã tồn tại"
 fi
+
+# Copy essential skills if not already there
+for skill in content-writer marketing-planner facebook-page-manager baserow-integration social-media-manager image-designer n8n-workflow-engineering; do
+    if [ -d "$SKILLS_DIR/fullstack-mkt-skills/skills/$skill" ] && [ ! -d "$SKILLS_DIR/$skill" ]; then
+        cp -r "$SKILLS_DIR/fullstack-mkt-skills/skills/$skill" "$SKILLS_DIR/"
+        warn "Copied skill: $skill"
+    fi
+done
+log "Skills OK"
 
 # Create TOOLS.md
 echo ""
