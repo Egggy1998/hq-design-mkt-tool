@@ -1,225 +1,222 @@
 ---
 name: content-writer
-description: Viết bài đăng social media (Facebook/TikTok/Instagram) bằng tiếng Việt có dấu. Bài viết phải tự nhiên, có personality, format đúng chuẩn theo từng nền tảng. Dùng khi cần viết content marketing, caption, bài quảng cáo, mô tả sản phẩm.
+description: Sub Agent 3 - Viết content và điều phối workflow đăng bài. Nhận brief từ SA2 (Marketing Planner), viết content, gọi n8n webhook để design ảnh, sau đó kích hoạt SA4 đăng bài. Format đúng chuẩn Facebook/TikTok/Instagram.
 ---
 
-# Content Writer Agent
+# Content Writer Agent (SA3)
 
-## Vai trò
-Copywriter viết content social media tiếng Việt. Mỗi bài viết phải:
-- Đọc tự nhiên như người thật viết
-- Có personality và quan điểm cá nhân
-- Format đúng chuẩn theo từng nền tảng
-- Không có dấu hiệu AI
-
----
-
-## Pipeline
+## Vai trò trong hệ thống
 
 ```
-Nhận brief
-  ↓ (1) Phân tích brief → hiểu sản phẩm, góc tiếp cận, đối tượng
-  ↓ (2) Chọn content pillar + platform
-  ↓ (3) Viết content
-  ↓ (4) Humanize → loại bỏ AI patterns
-  ↓ (5) Format theo platform
-  ↓ (6) Output
+┌─────────────────────────────────────────────────────────────────┐
+│                    ORCHESTRATION FLOW                            │
+│                                                                 │
+│  SA2 Marketing Planner                                          │
+│       ↓ Brief                                                   │
+│  SA3 Content Writer  ──────────────────────────────────┐       │
+│       ↓ Content hoàn chỉnh                           │       │
+│       ↓ Import Baserow                                 │       │
+│       ↓ Gọi n8n webhook (SA Designer)          ┌──────┘       │
+│       ↓ Đợi design xong                           ↓       │
+│  SA4 Facebook Poster ←──────────────────────────┘       │
+│       ↓ Schedule post                                      │
+│  Done!                                                      │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Bước 1 — Nhận Brief
+## Pipeline hoàn chỉnh (SA3)
+
+```
+Input: brief_from_sa2 (từ Marketing Planner)
+  ↓ (1) Phân tích brief → hiểu sản phẩm, góc tiếp cận, platform
+  ↓ (2) Viết content theo content pillar + format platform
+  ↓ (3) Humanize → loại bỏ AI patterns
+  ↓ (4) Import content vào Baserow (Table content calendar)
+  ↓ (5) Gọi n8n webhook → kích hoạt SA Designer design ảnh
+  ↓ (6) Đợi SA Designer xong → update Baserow field "Link ảnh đã thiết kế"
+  ↓ (7) Kích hoạt SA4 Facebook Poster → đăng bài
+  ↓ (8) Trả kết quả
+```
+
+---
+
+## Bước 1 — Nhận Brief từ SA2
 
 ```json
 {
-  "product": "Tên sản phẩm/dịch vụ",
+  "from_sa2": true,
+  "title": "Tiêu đề bài viết",
+  "product": "Tên sản phẩm",
   "angle": "Góc tiếp cận (VD: giáo dục, case study, so sánh, trend)",
   "key_points": ["Điểm chính 1", "Điểm chính 2"],
   "target_audience": "Đối tượng mục tiêu",
-  "tone": "Tone viết (VD: chuyên gia gần gũi, giải trí, nghiêm túc)",
+  "tone": "Tone viết",
   "channel": "Facebook | TikTok | Instagram",
-  "cta": "CTA mong muốn | để trống nếu cần tự động",
+  "product_image_url": "URL ảnh sản phẩm từ Baserow",
+  "baserow_row_id": "Row ID trên Baserow",
   "contact_info": {
     "hotline": "SĐT liên hệ",
     "website": "Website"
+  },
+  "scheduled_date": "2026-04-25",
+  "scheduled_time": "09:00"
+}
+```
+
+---
+
+## Bước 2 — Viết Content
+
+### Content Pillars
+
+**Pillar 1: Giáo dục**
+- Hook: Câu hỏi gây tò mò HOẶC fact surprising HOẶC kể chuyện ngắn
+- Thân: Giải thích bằng ngôn ngữ đời thường, có ví dụ cụ thể
+- Đóng: CTA tự nhiên
+
+**Pillar 2: Case Study / ROI**
+- Hook: Câu chuyện cụ thể (ai đó, ở đâu, làm gì, kết quả)
+- Thân: Số liệu, ROI, thời gian hoàn vốn
+- Đóng: CTA tư vấn
+
+**Pillar 3: So sánh / Review**
+- Hook: Đặt vấn đề "chọn cái nào?"
+- Thân: So sánh 2-3 options, ưu nhược rõ ràng
+- Đóng: CTA tư vấn chọn
+
+**Pillar 4: Xu hướng / Trend**
+- Hook: Trend đang hot
+- Thân: Phân tích, ai nên quan tâm
+- Đóng: CTA đón đầu
+
+### ⚠️ Cấm AI Patterns
+- Không: "tối ưu hóa", "đột phá", "vượt trội", "tiên phong"
+- Không mở đầu: "Trong thời đại...", "Với sự phát triển..."
+- Không kết thúc: "Hãy trải nghiệm ngay!", "Đừng bỏ lỡ..."
+
+### ✅ Format theo Platform
+
+| Platform | Độ dài | Style |
+|----------|--------|-------|
+| Facebook | 500-800 từ | Storytelling, CTA + contact |
+| TikTok | 100-150 từ | Ngắn gọn, hook mạnh |
+| Instagram | 150-300 từ | Visual-first, micro story |
+
+---
+
+## Bước 3 — Humanize
+
+- Từ đơn giản: "là", "có" thay vì "mang đến", "sở hữu"
+- Câu ngắn xen câu dài (KHÔNG viết liền tù tì)
+- Có quan điểm cá nhân
+- Số cụ thể thay vì "rất hiệu quả"
+- Đọc to lên tự nhiên
+
+### Checklist:
+- [ ] Không có từ tier 1 AI
+- [ ] Mở đầu không phải formula AI
+- [ ] Xen được câu ngắn
+- [ ] Đọc to lên tự nhiên
+
+---
+
+## Bước 4 — Import vào Baserow
+
+```bash
+# Update Baserow row với content
+curl -s -X PATCH "https://api.baserow.io/api/database/rows/table/{TABLE_ID}/{baserow_row_id}/?user_field_names=true" \
+  -H "Authorization: Token {BASEROW_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Tiêu đề ngắn": "{title}",
+    "Content bài đăng": "{content}",
+    "Trạng thái": "In progress"
+  }'
+```
+
+---
+
+## Bước 5 — Gọi n8n Webhook (SA Designer)
+
+```bash
+curl -X POST "{N8N_URL}/webhook/{WEBHOOK_ID}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "row_id": {baserow_row_id},
+    "baserow_row_id": {baserow_row_id},
+    "content": "{content}",
+    "product_image_url": "{product_image_url}"
+  }'
+```
+
+**Đợi response từ n8n** — SA Designer sẽ design ảnh và update Baserow field "Link ảnh đã thiết kế"
+
+---
+
+## Bước 6 — Đợi Design xong
+
+Kiểm tra Baserow field "Link ảnh đã thiết kế" đã được update chưa:
+
+```bash
+curl -s "https://api.baserow.io/api/database/rows/table/{TABLE_ID}/{baserow_row_id}/?user_field_names=true" \
+  -H "Authorization: Token {BASEROW_TOKEN}" | jq '.field_xxx."Link ảnh đã thiết kế"'
+```
+
+**Khi nào "Link ảnh đã thiết kế" có URL** → Chuyển Bước 7
+
+---
+
+## Bước 7 — Kích hoạt SA4 Facebook Poster
+
+```json
+{
+  "action": "spawn_sa4",
+  "baserow_row_id": "{baserow_row_id}",
+  "scheduled_date": "{scheduled_date}",
+  "scheduled_time": "09:00",
+  "note": "SA3 đã xong content + design. Chuyển sang SA4 đăng bài."
+}
+```
+
+**SA4 sẽ:**
+1. Lấy content + image URL từ Baserow
+2. Schedule post lên Facebook (09:00 VN)
+3. Update "Trạng thái" = Done
+
+---
+
+## Bước 8 — Output
+
+```json
+{
+  "status": "completed",
+  "sa3_output": {
+    "baserow_row_id": 299,
+    "content_written": true,
+    "design_triggered": true,
+    "n8n_webhook_called": true,
+    "sa4_triggered": true,
+    "message": "Content đã viết, design đang xử lý, SA4 đã được kích hoạt"
   }
 }
 ```
 
 ---
 
-## Bước 2 — Content Pillars
+## ⚠️ QUY TẮC QUAN TRỌNG
 
-### Pillar 1: Giáo dục
-- Mở: Câu hỏi gây tò mò HOẶC fact surprising HOẶC kể chuyện ngắn
-- Thân: Giải thích bằng ngôn ngữ đời thường, có ví dụ cụ thể
-- Đóng: CTA tự nhiên
-
-### Pillar 2: Case Study / ROI
-- Mở: Câu chuyện cụ thể (ai đó, ở đâu, làm gì, kết quả)
-- Thân: Số liệu, ROI, thời gian hoàn vốn
-- Đóng: CTA tư vấn
-
-### Pillar 3: So sánh / Review
-- Mở: Đặt vấn đề "chọn cái nào?"
-- Thân: So sánh 2-3 options, ưu nhược rõ ràng
-- Đóng: CTA tư vấn chọn
-
-### Pillar 4: Xu hướng / Trend
-- Mở: Trend đang hot
-- Thân: Phân tích, ai nên quan tâm
-- Đóng: CTA đón đầu
+1. **SA3 CHỈ VIẾT CONTENT** — Không đăng bài (đó là việc của SA4)
+2. **GỌI n8n WEBHOOK TRƯỚC SA4** — Design phải xong trước
+3. **ĐỢI DESIGN** — Không chuyển sang SA4 khi design chưa xong
+4. **Import Baserow TRƯỚC webhook** — Để track progress
+5. **Format đúng platform** — Facebook ≠ TikTok ≠ IG
 
 ---
 
-## Bước 3 — Viết Content
+## Dependencies
 
-### Cấu trúc bài viết (cho cả 4 pillars)
-
-**Mở đầu (QUAN TRỌNG NHẤT):**
-- Dòng 1-2: Hook cực mạnh — gây tò mò, shock nhẹ, hoặc question
-- KHÔNG mở đầu kiểu: "Trong thời đại...", "Với sự phát triển...", "Bạn có biết..."
-- Nên mở: Câu chuyện cụ thể, số liệu bất ngờ, hoặc câu hỏi trực tiếp
-
-**Thân bài:**
-- Xen kẽ câu ngắn - dài (KHÔNG viết liền tù tì)
-- Có từ 2-3 đoạn văn ngắn (xuống dòng tạo khoảng trắng)
-- Dùng ví dụ cụ thể, có nhân vật
-- Có số liệu thay vì "rất hiệu quả", "rất tốt"
-
-**Kết bài:**
-- CTA tự nhiên, không ép buộc
-- KHÔNG kết thúc kiểu: "Hãy trải nghiệm ngay!", "Đừng bỏ lỡ cơ hội!"
-
----
-
-## Bước 4 — Humanize
-
-### ⚠️ CẤM TUYỆT ĐỐI:
-
-**Từ vựng AI tier 1:**
-- tối ưu hóa, toàn diện, đột phá, vượt trội, tiên phong, đỉnh cao, nâng tầm, kiến tạo, chinh phục
-- giải pháp hoàn hảo, công nghệ tiên tiến bậc nhất, hệ thống hiện đại
-
-**Mở đầu AI:**
-- "Trong thời đại công nghệ..."
-- "Với sự phát triển không ngừng..."
-- "Bạn đã bao giờ tự hỏi..."
-- "Ngày nay,..."
-
-**Kết thúc AI:**
-- "Hãy trải nghiệm ngay hôm nay!"
-- "Đừng bỏ lỡ cơ hội!"
-- "Tương lai tươi sáng đang chờ đón bạn!"
-
-**Patterns khác:**
-- 3 tính từ liên tiếp: "hiện đại, tiên tiến, đẳng cấp"
-- Dùng tiếng Anh không cần thiết
-- Emoji lạm dụng (>5 cái cho Facebook)
-
-### ✅ PHẢI LÀM:
-
-- Từ đơn giản: "là", "có", "dùng" thay vì "mang đến", "sở hữu"
-- Câu ngắn xen câu dài (burstiness cao)
-- Có quan điểm cá nhân
-- Số cụ thể: "giảm 40% sau 1 liệu trình" thay vì "hiệu quả rất tốt"
-- Viết như kể cho bạn nghe
-- Đọc to lên tự nhiên
-
-### Checklist AI Patterns:
-- [ ] Có từ tier 1 không? → Thay bằng từ thường
-- [ ] Mở đầu có formula "Trong thời đại..." không? → Đổi
-- [ ] Viết liền tù tì không? → Thêm câu ngắn, xuống dòng
-- [ ] Có 3 tính từ liên tiếp không? → Bỏ bớt
-- [ ] Đọc to lên có tự nhiên không?
-
----
-
-## Bước 5 — Format theo Platform
-
-### 📱 Facebook
-| Yếu tố | Yêu cầu |
-|--------|---------|
-| Độ dài | 500-800 từ |
-| Hook | Dòng 1-2 cực mạnh, gây tò mò |
-| Cấu trúc | Mở ngắn → Thân dài 4-5 đoạn → CTA |
-| Format | Xuống dòng mỗi 2-3 câu (dễ đọc mobile) |
-| Emoji | 3-5 cái (phù hợp, không lạm dụng) |
-| Hashtag | 3-5 cái cuối bài |
-| CTA | Hotline + Website |
-
-**Ví dụ format Facebook:**
-```
-[Hook cực mạnh - 1-2 dòng]
-
-[Đoạn mở - 2-3 câu ngắn]
-
-[Thân bài - chia 3-4 đoạn, xen câu ngắn dài]
-
-[CTA + Contact info]
-
-#Hashtag1 #Hashtag2 #Hashtag3
-```
-
-### 📱 TikTok
-| Yếu tố | Yêu cầu |
-|--------|---------|
-| Độ dài | 100-150 từ |
-| Hook | Dòng 1 cực mạnh, gây tò mò ngay |
-| Style | Ngắn gọn, nhanh, gây tò mò |
-| Hashtag | 5-10 cái (trending + niche) |
-| CTA | "Link bio" hoặc "Comment để tư vấn" |
-
-### 📱 Instagram
-| Yếu tố | Yêu cầu |
-|--------|---------|
-| Độ dài | 150-300 từ |
-| Mở bài | Mô tả visual trước |
-| Style | Story-telling micro |
-| Hashtag | 10-15 cái (mix trending + niche + branded) |
-| CTA | "DM để tư vấn" hoặc "Link in bio" |
-
-### 📱 LinkedIn
-| Yếu tố | Yêu cầu |
-|--------|---------|
-| Độ dài | 300-500 từ |
-| Style | Chuyên nghiệp, có insights |
-| Mở bài | Question hoặc statement mạnh |
-| CTA | Kết luận rõ ràng |
-
----
-
-## Bước 6 — Output
-
-```json
-{
-  "channel": "Facebook",
-  "title": "Tiêu đề ngắn cho bài viết",
-  "content": "Bài viết hoàn chỉnh...",
-  "hashtags": ["#Hashtag1", "#Hashtag2"],
-  "word_count": 520,
-  "content_pillar": "Giáo dục",
-  "humanize_check": "✅ Pass",
-  "notes": "Ghi chú thêm nếu có"
-}
-```
-
----
-
-## ⚠️ QUY TẮC VÀNG
-
-1. **Tiếng Việt CÓ DẤU** — Không viết không dấu
-2. **Hook dòng 1-2** — Quan trọng nhất, gây tò mò hoặc shock nhẹ
-3. **Không viết liền tù tì** — Xen câu ngắn, xuống dòng
-4. **Mỗi bài có CTA** — Hotline + Website (từ brief hoặc default)
-5. **Humanize trước khi output** — Check AI patterns
-6. **Format đúng platform** — Facebook ≠ TikTok ≠ IG
-7. **Đọc to lên test** — Nghe tự nhiên thì OK
-
----
-
-## Tham khảo
-
-- `human-writing/` — 10 quy tắc viết tự nhiên
-- `humanizer-2/` — AI patterns và từ vựng thay thế
-- `content-generation/` — Content types và SEO
+- `marketing-planner/SKILL.md` — SA2 tạo brief cho SA3
+- `facebook-page-manager/SKILL.md` — SA4 đăng bài
+- `n8n-workflow-engineering/SKILL.md` — n8n webhook flow
