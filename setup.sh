@@ -2,15 +2,15 @@
 # 3D Vietnam Marketing System - Quick Setup
 # Run: bash setup.sh
 # 
-# Setup n8n + Facebook credentials
-# Copies OpenClaw skills from source workspace + clones fullstack-mkt knowledge repo
+# Setup n8n + Facebook + Skills
+# Skills are included in repo, copied to workspace on setup
 
 set -e
 
 echo "
 ╔═══════════════════════════════════════════════════════════════╗
 ║     3D VIETNAM MARKETING SYSTEM - SETUP TOOL                    ║
-║     Setup n8n + Facebook + Skills                             ║
+║     Setup n8n + Facebook + OpenClaw Skills                    ║
 ╚═══════════════════════════════════════════════════════════════╝
 "
 
@@ -36,7 +36,7 @@ read -p "5. Tên Business (VD: 3D Vietnam): " BUSINESS_NAME
 
 WORKSPACE="$HOME/.openclaw/workspace"
 SKILLS_DIR="$WORKSPACE/skills"
-SOURCE_SKILLS="$HOME/.openclaw/workspace/skills"  # Skills copy từ workspace hiện tại
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Create directories
 echo ""
@@ -45,56 +45,34 @@ mkdir -p "$WORKSPACE/memory"
 mkdir -p "$SKILLS_DIR"
 log "Thư mục OK"
 
-# Clone fullstack-mkt repo (MKT knowledge files - BONUS)
+# Copy OpenClaw Skills từ repo (skills/ folder trong repo)
 echo ""
-warn "Clone fullstack-mkt repo (MKT knowledge)..."
+warn "Copy OpenClaw Skills vào workspace..."
+
+SKILLS_TO_COPY="content-writer marketing-planner facebook-page-manager baserow-integration image-designer social-media-manager n8n-workflow-engineering"
+
+for skill in $SKILLS_TO_COPY; do
+    if [ -d "$SCRIPT_DIR/skills/$skill" ]; then
+        if [ ! -d "$SKILLS_DIR/$skill" ]; then
+            cp -r "$SCRIPT_DIR/skills/$skill" "$SKILLS_DIR/"
+            log "Copied: $skill"
+        else
+            warn "Skill đã tồn tại: $skill"
+        fi
+    else
+        warn "Skill không tìm thấy trong repo: $skill"
+    fi
+done
+
+# Clone fullstack-mkt repo (MKT knowledge - BONUS)
+echo ""
+warn "Clone fullstack-mkt repo (MKT knowledge - BONUS)..."
 if [ ! -d "$SKILLS_DIR/fullstack-mkt" ]; then
     git clone https://github.com/minhnv0807/fullstack-mkt-skills.git "$SKILLS_DIR/fullstack-mkt" 2>/dev/null || warn "Clone failed (skip)"
 else
     warn "fullstack-mkt repo đã tồn tại"
 fi
 log "fullstack-mkt repo OK"
-
-# Copy OpenClaw Skills từ workspace (NẾU CÓ sẵn)
-echo ""
-warn "Copy OpenClaw Skills..."
-
-SKILLS_TO_COPY="content-writer marketing-planner facebook-page-manager baserow-integration social-media-manager image-designer n8n-workflow-engineering"
-
-for skill in $SKILLS_TO_COPY; do
-    if [ -d "$SOURCE_SKILLS/$skill" ]; then
-        if [ ! -d "$SKILLS_DIR/$skill" ]; then
-            cp -r "$SOURCE_SKILLS/$skill" "$SKILLS_DIR/"
-            log "Copied: $skill"
-        else
-            warn "Skill đã tồn tại: $skill"
-        fi
-    else
-        warn "Skill không tìm thấy trong workspace: $skill"
-    fi
-done
-
-echo ""
-echo "============================================"
-echo "SKILLS SAU SETUP:"
-echo ""
-echo "OpenClaw Skills (từ workspace):"
-for skill in $SKILLS_TO_COPY; do
-    if [ -d "$SKILLS_DIR/$skill" ]; then
-        echo "  ✅ $skill"
-    else
-        echo "  ❌ $skill (không có)"
-    fi
-done
-
-echo ""
-echo "MKT Knowledge (từ repo):"
-if [ -d "$SKILLS_DIR/fullstack-mkt" ]; then
-    echo "  ✅ fullstack-mkt/"
-    ls "$SKILLS_DIR/fullstack-mkt/" | sed 's/^/      - /'
-else
-    echo "  ❌ fullstack-mkt (không có)"
-fi
 
 # Create TOOLS.md
 echo ""
@@ -143,37 +121,27 @@ cat > "$WORKSPACE/PLAYBOOK.md" << EOF
 ## Facebook
 - Page ID: ${FB_PAGE_ID}
 
-## Skills
-### OpenClaw Skills (từ workspace)
-- content-writer - SA3: Viết content Facebook
-- marketing-planner - SA2: Lên kế hoạch content
-- facebook-page-manager - SA4: Đăng bài Facebook
-- baserow-integration - Kết nối Baserow
-- image-designer - SA1: Design ảnh
-- n8n-workflow-engineering - n8n workflows
-- social-media-manager - Quản lý đa kênh
+## Skills (OpenClaw)
 
-### MKT Knowledge (từ repo)
-- fullstack-mkt/ - 16 MKT knowledge files (bonus)
+| Skill | Role |
+|-------|------|
+| content-writer | SA3: Viết content Facebook |
+| marketing-planner | SA2: Lên kế hoạch content |
+| facebook-page-manager | SA4: Đăng bài Facebook |
+| baserow-integration | Kết nối Baserow |
+| image-designer | SA1: Design ảnh |
+| social-media-manager | Quản lý đa kênh |
+| n8n-workflow-engineering | n8n workflows |
+
+## MKT Knowledge (bonus)
+- fullstack-mkt/ - 16 MKT knowledge files
 
 ## Baserow Tables (CREATED MANUALLY)
 ### Content Calendar
-| Field | Type |
-|-------|------|
-| Ngày đăng | date |
-| Kênh đăng | single_select |
-| Tiêu đề ngắn | text |
-| Content bài đăng | long_text |
-| Link ảnh đã thiết kế | text |
-| Trạng thái | single_select |
-| Ghi chú | text |
+- Ngày đăng, Kênh đăng, Tiêu đề ngắn, Content bài đăng, Link ảnh đã thiết kế, Trạng thái, Ghi chú
 
 ### Product Database
-| Field | Type |
-|-------|------|
-| Tên thiết bị | text |
-| Link ảnh | url |
-| Link sản phẩm | url |
+- Tên thiết bị, Link ảnh, Link sản phẩm
 
 ## Workflow
 1. Content (SA3) → Import Baserow
@@ -192,6 +160,26 @@ else
     error "FAILED"
 fi
 
+# Summary
+echo ""
+echo "============================================"
+echo "OPENCLAW SKILLS ĐÃ COPY:"
+for skill in $SKILLS_TO_COPY; do
+    if [ -d "$SKILLS_DIR/$skill" ]; then
+        echo "  ✅ $skill"
+    else
+        echo "  ❌ $skill"
+    fi
+done
+
+echo ""
+echo "MKT KNOWLEDGE:"
+if [ -d "$SKILLS_DIR/fullstack-mkt" ]; then
+    echo "  ✅ fullstack-mkt/"
+else
+    echo "  ❌ fullstack-mkt"
+fi
+
 echo "
 ╔═══════════════════════════════════════════════════════════════╗
 ║                 ✅ SETUP HOÀN THÀNH                          ║
@@ -199,8 +187,7 @@ echo "
 ║  FILES:                                                     ║
 ║    - ~/.openclaw/workspace/TOOLS.md                         ║
 ║    - ~/.openclaw/workspace/PLAYBOOK.md                      ║
-║    - ~/.openclaw/workspace/skills/facebook-page-manager/    ║
-║      tokens.json                                            ║
+║    - ~/.openclaw/workspace/skills/                          ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║  NEXT STEPS:                                                 ║
 ║    1. Create Baserow tables MANUALLY on Baserow UI         ║
