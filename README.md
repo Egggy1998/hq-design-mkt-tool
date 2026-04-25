@@ -127,7 +127,7 @@ Baserow **KHÔNG cho phép tạo table qua API**.
 
 ```bash
 # 1. Clone repo
-git clone https://github.com/minhnv0807/3d-vietnam-mkt-tool.git ~/.openclaw/workspace/setup-tool
+git clone https://github.com/minhnv0807/hq-design-mkt-tool.git ~/.openclaw/workspace/setup-tool
 
 # 2. Chạy setup
 bash ~/.openclaw/workspace/setup-tool/setup.sh
