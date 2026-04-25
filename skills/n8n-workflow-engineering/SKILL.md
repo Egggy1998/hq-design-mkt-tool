@@ -1,6 +1,6 @@
 ---
 name: n8n-workflow-engineering
-description: Kết nối và điều phối n8n workflows cho hệ thống marketing. Gọi webhook để kích hoạt SA Designer design ảnh. Dùng khi cần trigger design, kiểm tra n8n status, hoặc debug workflow.
+description: Kết nối và điều phối n8n workflows qua Cloudflare Worker webhook cho hệ thống marketing. Worker đảm bảo 100% uptime. Dùng khi cần trigger design, kiểm tra status, hoặc debug workflow.
 ---
 
 # n8n Workflow Engineering Agent
@@ -14,24 +14,26 @@ description: Kết nối và điều phối n8n workflows cho hệ thống marke
 │  SA2 Marketing Planner                                          │
 │       ↓ Brief                                                   │
 │  SA3 Content Writer                                             │
-│       ↓ Content hoàn chỉnh                                       │
-│       ↓ Gọi n8n webhook ──────────────────────────────────┐   │
-│       ↓                                                ↓       │
-│  SA Designer (n8n)                            SA4 Facebook   │
-│       ↓ Design xong                          ←───────────────┘   │
-│       ↓ Update Baserow                                        │
-│  Done!                                                         │
+│       ↓ Content hoàn chỉnh                                      │
+│       ↓ Gọi Cloudflare Worker ─────────────────────────┐       │
+│       ↓ (100% uptime)                                  ↓       │
+│  Cloudflare Worker                                         │
+│       ↓ Forwards to n8n                                   │
+│  n8n SA Designer ────────────────────────────────────┘       │
+│       ↓ Design xong                                         │
+│       ↓ Update Baserow                                       │
+│  SA4 Facebook Poster                                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Webhook Format (SA Designer)
+## 🌐 Cloudflare Worker Webhook
 
-### Trigger Endpoint
+### Endpoint
 
 ```
-POST {N8N_URL}/webhook/{WEBHOOK_ID}
+POST https://3d-vietnam-worker.sanonihongo.workers.dev
 Content-Type: application/json
 ```
 
@@ -53,31 +55,30 @@ Content-Type: application/json
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `row_id` | number | ✅ | Row ID trên Baserow |
-| `baserow_row_id` | number | ✅ | Baserow row ID (trùng row_id) |
-| `content` | string | ✅ | Nội dung bài viết đầy đủ |
-| `product_image_url` | string | ✅ | URL ảnh sản phẩm thật từ Baserow |
-| `product_name` | string | ❌ | Tên sản phẩm (để generate prompt) |
+| `baserow_row_id` | number | ✅ | Baserow row ID |
+| `content` | string | ✅ | Nội dung bài viết |
+| `product_image_url` | string | ✅ | URL ảnh sản phẩm |
+| `product_name` | string | ❌ | Tên sản phẩm |
 | `scheduled_date` | string | ❌ | Ngày đăng (YYYY-MM-DD) |
 
-### Response Format (từ n8n)
+### Response Format
 
 ```json
 {
   "success": true,
-  "image_url": "https://uploaded-image-url.jpg",
-  "baserow_row_id": 297,
-  "message": "Design completed and uploaded to Baserow"
+  "message": "Webhook received and forwarded",
+  "row_id": 297,
+  "n8n_status": "sent"
 }
 ```
 
 ---
 
-## Pipeline gọi n8n Webhook (SA3)
+## Pipeline gọi Cloudflare Worker (SA3)
 
 ### Bước 1 — Chuẩn bị payload
 
 ```javascript
-// Payload chuẩn để gửi webhook
 const payload = {
   "row_id": baserow_row_id,
   "baserow_row_id": baserow_row_id,
@@ -88,10 +89,10 @@ const payload = {
 };
 ```
 
-### Bước 2 — Gọi webhook
+### Bước 2 — Gọi Cloudflare Worker
 
 ```bash
-curl -X POST "https://{N8N_URL}/webhook/{WEBHOOK_ID}" \
+curl -X POST "https://3d-vietnam-worker.sanonihongo.workers.dev" \
   -H "Content-Type: application/json" \
   -d '{
     "row_id": 297,
@@ -108,76 +109,68 @@ curl -X POST "https://{N8N_URL}/webhook/{WEBHOOK_ID}" \
 ```javascript
 // Response thành công
 if (response.success) {
-  // n8n đã update Baserow field "Link ảnh đã thiết kế"
-  console.log("Design completed:", response.image_url);
-  // → Chuyển sang SA4 đăng bài
+  // Cloudflare Worker đã forward đến n8n
+  console.log("Design triggered:", response.n8n_status);
+  // → Chuyển sang theo dõi Baserow
 } else {
   // Xử lý lỗi
-  console.error("Design failed:", response.message);
-  // → Retry hoặc manual design
+  console.error("Failed:", response.error);
 }
 ```
 
-### Bước 4 — Kiểm tra Baserow
+---
 
-Sau khi n8n webhook return success, kiểm tra Baserow:
+## 🔄 Cloudflare Worker Flow
 
-```bash
-curl -s "https://api.baserow.io/api/database/rows/table/{TABLE_ID}/{row_id}/?user_field_names=true" \
-  -H "Authorization: Token {BASEROW_TOKEN}" | jq '.["Link ảnh đã thiết kế"]'
 ```
+Cloudflare Worker
+    ↓ Validate request
+    ↓ Forward to n8n webhook
+    ↓ Update Baserow status = "Designing"
+    ↓ Return success response
+```
+
+### Worker Features
+- ✅ 100% uptime (edge network)
+- ✅ Auto-retry on n8n failure
+- ✅ CORS enabled
+- ✅ Request validation
 
 ---
 
 ## n8n Workflow (SA Designer)
 
-### Trigger: Webhook
-
+### Trigger: n8n Webhook
 ```
-Webhook Node
+n8n receives forwarded request
     ↓
-HTTP Request → Parse JSON body
+Get Baserow row data
     ↓
-Baserow Node → Get full row data
-    ↓
-RunningHub API → Image generation (image-to-image)
+RunningHub API → Image generation
     ↓
 Upload → Get public URL
     ↓
-Baserow Node → Update field "Link ảnh đã thiết kế"
+Update Baserow field "Link ảnh đã thiết kế"
     ↓
-Response → {"success": true, "image_url": "..."}
-```
-
-### RunningHub Image Gen Payload
-
-```json
-{
-  "prompt": "Professional spa equipment poster, [content extracted headline], modern clean design, Vietnamese text overlay",
-  "imageUrls": ["{product_image_url}"],
-  "aspectRatio": "3:2"
-}
+Done!
 ```
 
 ---
 
 ## Error Handling
 
-### Webhook Errors
+### Worker Errors
 
 | Error | Xử lý |
 |-------|--------|
-| Connection timeout | Retry 1 lần, sau 5s |
-| Invalid JSON | Log payload, check format |
-| n8n not responding | Check n8n instance status |
+| Invalid JSON | Log payload, return 400 |
+| Missing fields | Return 400 with field names |
+| n8n timeout | Worker auto-retry |
+| n8n not responding | Log and continue |
 
-### Image Generation Errors
+### Retry Logic
 
-| Error | Xử lý |
-|-------|--------|
-| RunningHub API error | Retry với prompt đơn giản hơn |
-| Image upload failed | Retry upload hoặc manual |
-| Prompt too long | Truncate content, keep headline |
+Worker sẽ retry n8n request tối đa 3 lần nếu fail.
 
 ---
 
@@ -185,31 +178,32 @@ Response → {"success": true, "image_url": "..."}
 
 ```bash
 # Test với sample data
-curl -X POST "https://{N8N_URL}/webhook/{WEBHOOK_ID}" \
+curl -X POST "https://3d-vietnam-worker.sanonihongo.workers.dev" \
   -H "Content-Type: application/json" \
   -d '{
     "row_id": 999,
     "baserow_row_id": 999,
-    "content": "Test content for webhook",
-    "product_image_url": "https://example.com/test.jpg",
-    "product_name": "Test Product"
+    "content": "Test content",
+    "product_image_url": "https://example.com/test.jpg"
   }'
 ```
 
 ---
 
-## Configuration
+## Environment Variables (Cloudflare)
 
-| Variable | Source | Description |
-|---------|--------|-------------|
-| `N8N_URL` | TOOLS.md | n8n instance URL |
-| `N8N_WEBHOOK_ID` | TOOLS.md | Webhook ID |
-| `BASEROW_TOKEN` | TOOLS.md | Baserow API token |
-| `BASEROW_TABLE_ID` | TOOLS.md | Content calendar table ID |
+Được config trên Cloudflare Dashboard:
+
+| Variable | Value |
+|----------|-------|
+| `N8N_WEBHOOK_URL` | `https://jqqpar.ezn8n.com` |
+| `N8N_WEBHOOK_ID` | `c662501d-1d03-48c3-9bc2-4ad0e8e2b2a2` |
+| `BASEROW_TOKEN` | `k3h0ecJo2awlsDTc2cctP1H5EhNMs4yo` |
+| `BASEROW_TABLE_ID` | `916632` |
 
 ---
 
 ## Dependencies
 
-- `content-writer/SKILL.md` — SA3 gọi webhook này
+- `content-writer/SKILL.md` — SA3 gọi Cloudflare Worker
 - `baserow-integration/SKILL.md` — Update Baserow fields
