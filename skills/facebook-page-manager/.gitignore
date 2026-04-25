@@ -1,0 +1,15 @@
+# Credentials - NEVER commit these!
+.env
+.env.local
+.env.*.local
+
+tokens.json
+tokens.local.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
