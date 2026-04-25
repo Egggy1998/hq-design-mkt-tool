@@ -33,7 +33,7 @@ description: Kết nối và điều phối n8n workflows qua Cloudflare Worker 
 ### Endpoint
 
 ```
-POST https://3d-vietnam-worker.sanonihongo.workers.dev
+POST https://YOUR_SUBDOMAIN.workers.dev
 Content-Type: application/json
 ```
 
@@ -74,6 +74,64 @@ Content-Type: application/json
 
 ---
 
+## 🚀 Cách Tự Set Up Cloudflare Worker
+
+### Bước 1: Chuẩn bị
+
+```bash
+# Cài Wrangler CLI
+npm install -g wrangler
+
+# Login Cloudflare
+wrangler login
+```
+
+### Bước 2: Clone Worker Repo
+
+```bash
+# Clone repo
+git clone https://github.com/Egggy1998/3d-vietnam-worker.git
+cd 3d-vietnam-worker
+```
+
+### Bước 3: Deploy
+
+```bash
+# Deploy lên Cloudflare
+wrangler deploy
+```
+
+### Bước 4: Set Environment Variables
+
+Trên Cloudflare Dashboard:
+1. Workers & Pages → Chọn `3d-vietnam-worker`
+2. Settings → Variables
+3. Add variables:
+
+| Variable | Value |
+|----------|-------|
+| `N8N_WEBHOOK_URL` | `https://jqqpar.ezn8n.com` |
+| `N8N_WEBHOOK_ID` | `c662501d-1d03-48c3-9bc2-4ad0e8e2b2a2` |
+| `BASEROW_TABLE_ID` | `916632` |
+
+### Bước 5: Set Secret
+
+```bash
+# Set Baserow token (sẽ được bảo mật)
+wrangler secret put BASEROW_TOKEN
+# Nhập: k3h0ecJo2awlsDTc2cctP1H5EhNMs4yo
+```
+
+### Bước 6: Lấy Worker URL
+
+```bash
+# Xem Worker URL
+wrangler subdomain
+# Kết quả: https://3d-vietnam-worker.YOUR_SUBDOMAIN.workers.dev
+```
+
+---
+
 ## Pipeline gọi Cloudflare Worker (SA3)
 
 ### Bước 1 — Chuẩn bị payload
@@ -92,7 +150,7 @@ const payload = {
 ### Bước 2 — Gọi Cloudflare Worker
 
 ```bash
-curl -X POST "https://3d-vietnam-worker.sanonihongo.workers.dev" \
+curl -X POST "https://YOUR_SUBDOMAIN.workers.dev" \
   -H "Content-Type: application/json" \
   -d '{
     "row_id": 297,
@@ -178,7 +236,7 @@ Worker sẽ retry n8n request tối đa 3 lần nếu fail.
 
 ```bash
 # Test với sample data
-curl -X POST "https://3d-vietnam-worker.sanonihongo.workers.dev" \
+curl -X POST "https://YOUR_SUBDOMAIN.workers.dev" \
   -H "Content-Type: application/json" \
   -d '{
     "row_id": 999,
@@ -198,8 +256,10 @@ curl -X POST "https://3d-vietnam-worker.sanonihongo.workers.dev" \
 |----------|-------|
 | `N8N_WEBHOOK_URL` | `https://jqqpar.ezn8n.com` |
 | `N8N_WEBHOOK_ID` | `c662501d-1d03-48c3-9bc2-4ad0e8e2b2a2` |
-| `BASEROW_TOKEN` | `k3h0ecJo2awlsDTc2cctP1H5EhNMs4yo` |
 | `BASEROW_TABLE_ID` | `916632` |
+
+**Secret (cần set riêng):**
+- `BASEROW_TOKEN` | `k3h0ecJo2awlsDTc2cctP1H5EhNMs4yo` (set qua `wrangler secret put`)
 
 ---
 
@@ -207,3 +267,11 @@ curl -X POST "https://3d-vietnam-worker.sanonihongo.workers.dev" \
 
 - `content-writer/SKILL.md` — SA3 gọi Cloudflare Worker
 - `baserow-integration/SKILL.md` — Update Baserow fields
+
+---
+
+## 📚 Tham Khảo
+
+- Cloudflare Workers Docs: https://developers.cloudflare.com/workers/
+- Wrangler CLI: https://developers.cloudflare.com/workers/wrangler/
+- Worker Repo: https://github.com/Egggy1998/3d-vietnam-worker
